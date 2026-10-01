@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧型段考座位表產生器 - 新北市光仁中學</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入支援樣式與邊框匯出的 xlsx-js-style 套件 -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+    <style>
+        .dragging { opacity: 0.4; }
+        .drag-over { border-color: #3b82f6 !important; background-color: #eff6ff !important; transform: scale(1.02); }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans p-4 md:p-8 min-h-screen">
+    <div class="max-w-7xl mx-auto">
+        
+        <!-- 頁頭 -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight flex items-center justify-center gap-2">
+                🎓 智慧型段考座位表產生器
+            </h1>
+            <p class="text-slate-600 mt-2 text-sm md:text-base">
+                支援完整學校與段考抬頭 ‧ 講桌方位自動切換 ‧ 黑白列印 Excel 匯出
+            </p>
+        </header>
+
+        <!-- 設定與控制面板 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-4 items-center">
+            
+            <!-- 第一排：學校與考試資訊 -->
+            <div class="lg:col-span-3">
+                <label class="block text-xs font-bold text-slate-700 mb-1">學校名稱</label>
+                <input type="text" id="schoolName" value="新北市光仁中學" onchange="updateExamTitles()" class="w-full border border-slate-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-semibold">
+            </div>
+
+            <div class="lg:col-span-3">
+                <label class="block text-xs font-bold text-slate-700 mb-1">學年度</label>
+                <div class="flex items-center gap-1">
+                    <input type="number" id="schoolYear" value="115" onchange="updateExamTitles()" class="w-full border border-slate-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-center">
+                    <span class="text-xs font-bold text-slate-500 whitespace-nowrap">學年度</span>
+                </div>
+            </div>
+
+            <div class="lg:col-span-3">
+                <label class="block text-xs font-bold text-slate-700 mb-1">學期</label>
+                <select id="semester" onchange="updateExamTitles()" class="w-full border border-slate-300 rounded-xl p-2 text-sm font-semibold focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                    <option value="1" selected>第 1 學期</option>
+                    <option value="2">第 2 學期</option>
+                </select>
+            </div>
+
+            <div class="lg:col-span-3">
+                <label class="block text-xs font-bold text-slate-700 mb-1">段考次別</label>
+                <select id="examTerm" onchange="updateExamTitles()" class="w-full border border-slate-300 rounded-xl p-2 text-sm font-semibold focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                    <option value="1" selected>第 1 次段考</option>
+                    <option value="2">第 2 次段考</option>
+                    <option value="3">第 3 次段考</option>
+                </select>
+            </div>
+
+            <!-- 第二排：班級、日期、講桌 -->
+            <div class="lg:col-span-3">
+                <label class="block text-xs font-bold text-slate-700 mb-1">班級名稱</label>
+                <input type="text" id="className" value="國三忠" onchange="updateExamTitles()" class="w-full border border-slate-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-800">
+            </div>
+
+            <div class="lg:col-span-3">
+                <label class="block text-xs font-bold text-slate-700 mb-1">☀️ 上午場日期 / 時間</label>
+                <input type="text" id="morningDate" value="10/14 上午" onchange="updateExamTitles()" class="w-full border border-slate-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-blue-700">
+            </div>
+
+            <div class="lg:col-span-3">
+                <label class="block text-xs font-bold text-slate-700 mb-1">🌙 下午場日期 / 時間</label>
+                <input type="text" id="afternoonDate" value="10/14 下午" onchange="updateExamTitles()" class="w-full border border-slate-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none font-semibold text-purple-700">
+            </div>
+
+            <div class="lg:col-span-3">
+                <label class="block text-xs font-bold text-slate-700 mb-1">講桌方位</label>
+                <select id="teacherDeskPos" onchange="onTeacherDeskPosChange()" class="w-full border border-slate-300 rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                    <option value="top">⬆️ 講桌在上方（前）</option>
+                    <option value="bottom" selected>⬇ 講桌在下方（後）</option>
+                </select>
+            </div>
+
+            <!-- 第三排：行列數與 A/B 組設定 -->
+            <div class="lg:col-span-3">
+                <div class="flex justify-between items-center mb-1">
+                    <label class="text-xs font-bold text-slate-700">直排數 (Rows): <span id="rowValue" class="text-blue-600 font-extrabold">6</span></label>
+                </div>
+                <input type="range" id="rowSlider" min="2" max="10" value="6" oninput="onDimensionChange()" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+            </div>
+
+            <div class="lg:col-span-3">
+                <div class="flex justify-between items-center mb-1">
+                    <label class="text-xs font-bold text-slate-700">橫列數 (Cols): <span id="colValue" class="text-blue-600 font-extrabold">5</span></label>
+                </div>
+                <input type="range" id="colSlider" min="2" max="10" value="5" oninput="onDimensionChange()" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+            </div>
+
+            <div class="lg:col-span-6 bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
+                <div>
+                    <span class="block text-xs font-bold text-slate-700">啟用 A/B 組分排</span>
+                    <span class="text-[10px] text-slate-500">對應直列交錯分排，滿額溢出</span>
+                </div>
+                <label class="inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="enableABGroup" checked onchange="renderStudentTable()" class="sr-only peer">
+                    <div class="relative w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                </label>
+            </div>
+
+            <!-- 一鍵產生按鈕 -->
+            <div class="lg:col-span-12 mt-2">
+                <button onclick="generateSeatingCharts()" class="w-full bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold py-3 px-4 rounded-xl shadow-md transition duration-150 flex items-center justify-center gap-2">
+                    🎲 隨機產生座位表
+                </button>
+            </div>
+        </div>
+
+        <!-- 不規則教室格局設定區 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-2">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">🛠️ 教室格局與位置啟用設定</h2>
+                    <p class="text-xs text-slate-500 mt-1">點擊格子切換「🟢 可坐位置」與「❌ 無座位」。自動根據講桌方位排列排數。</p>
+                </div>
+                <div class="text-xs font-bold px-3 py-1.5 rounded-lg border" id="seatCounterBadge">
+                    學生數: <span id="studentNumText" class="text-blue-600">10</span> 人 / 可用座位: <span id="activeSeatText" class="text-emerald-600">30</span> 個
+                </div>
+            </div>
+
+            <div id="layoutEditorContainer" class="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col items-center">
+                <div id="deskBannerLayout" class="w-48 bg-amber-800 text-white text-center py-1.5 text-sm font-bold tracking-widest rounded-lg mb-4 shadow-inner transition-all">講 桌</div>
+                <div id="layoutEditorGrid" class="grid gap-2 w-full max-w-3xl"></div>
+            </div>
+        </div>
+
+        <!-- 學生名單線上管理區 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">👥 學生名單與組別設定</h2>
+                    <button onclick="toggleStudentList()" id="toggleStudentListBtn" class="bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 transition flex items-center gap-1 shadow-sm">
+                        <span>▲</span> 收起名單
+                    </button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="addStudent()" class="bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold px-3 py-2 rounded-lg border border-blue-200 transition flex items-center gap-1">
+                        ➕ 新增學生
+                    </button>
+                    <button onclick="downloadTemplate()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-3 py-2 rounded-lg border border-slate-300 transition flex items-center gap-1">
+                        📥 Excel 範本下載
+                    </button>
+                </div>
+            </div>
+
+            <div id="studentListContainer" class="mt-4 transition-all duration-300">
+                <div class="border-2 border-dashed border-slate-300 hover:border-blue-400 rounded-xl p-4 text-center bg-slate-50 hover:bg-blue-50/50 transition cursor-pointer mb-4" onclick="document.getElementById('excelFile').click()">
+                    <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" onchange="handleExcelUpload(event)" class="hidden">
+                    <div class="flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                        <span id="fileNameDisplay" class="text-xs text-slate-600 font-medium">點擊選擇或拖曳 Excel 檔批量覆蓋名單</span>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-[500px]">
+                    <table class="w-full text-left text-xs border-collapse">
+                        <thead class="sticky top-0 bg-slate-100 text-slate-700 border-b border-slate-200 font-bold z-10">
+                            <tr>
+                                <th class="p-2.5 w-16">座號</th>
+                                <th class="p-2.5 w-28">姓名</th>
+                                <th class="p-2.5 w-20">性別</th>
+                                <th class="p-2.5 w-24">組別 (A/B)</th>
+                                <th class="p-2.5 w-20">名次</th>
+                                <th class="p-2.5">特殊生備註與限制條件</th>
+                                <th class="p-2.5 w-32">避開對象</th>
+                                <th class="p-2.5 w-14 text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studentTableBody" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 錯誤提示 -->
+        <div id="errorMsg" class="hidden bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl mb-8 text-sm font-semibold"></div>
+
+        <!-- 工具列 -->
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+            <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">📋 產生的段考座位表</h2>
+            <button onclick="exportSeatingToExcel()" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow transition flex items-center gap-2">
+                📥 下載黑白精簡版 Excel 座位表 (.xlsx)
+            </button>
+        </div>
+
+        <!-- 座位表顯示區 -->
+        <div id="resultContainer" class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+            <!-- 上午場 -->
+            <div id="morningCard" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col items-center">
+                <div class="w-full text-center border-b border-slate-100 pb-4 mb-4">
+                    <h3 id="morningTitleMain" class="text-lg font-extrabold text-slate-900 tracking-wide"></h3>
+                    <div id="morningTitleSub" class="text-xs font-semibold text-slate-500 mt-1 flex flex-col items-center justify-center gap-1"></div>
+                </div>
+                <div id="morningDeskBanner" class="w-48 bg-amber-800 text-white text-center py-1.5 text-sm font-bold tracking-widest rounded-lg mb-4 shadow-inner transition-all">講 桌</div>
+                <div id="morningGrid" class="grid gap-2.5 w-full"></div>
+            </div>
+
+            <!-- 下午場 -->
+            <div id="afternoonCard" class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col items-center">
+                <div class="w-full text-center border-b border-slate-100 pb-4 mb-4">
+                    <h3 id="afternoonTitleMain" class="text-lg font-extrabold text-slate-900 tracking-wide"></h3>
+                    <div id="afternoonTitleSub" class="text-xs font-semibold text-slate-500 mt-1 flex flex-col items-center justify-center gap-1"></div>
+                </div>
+                <div id="afternoonDeskBanner" class="w-48 bg-amber-800 text-white text-center py-1.5 text-sm font-bold tracking-widest rounded-lg mb-4 shadow-inner transition-all">講 桌</div>
+                <div id="afternoonGrid" class="grid gap-2.5 w-full"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let globalStudents = [
+            { id: "01", name: "王小明", gender: "M", group: "A", rank: 1, note: "", cheat_group: ["02"] },
+            { id: "02", name: "李美玲", gender: "F", group: "B", rank: 15, note: "", cheat_group: ["01"] },
+            { id: "03", name: "張偉", gender: "M", group: "A", rank: 3, note: "固定只坐第一排", cheat_group: [] },
+            { id: "04", name: "陳淑芬", gender: "F", group: "B", rank: 28, note: "指定固定座位(1,1)", cheat_group: [] },
+            { id: "05", name: "林志豪", gender: "M", group: "A", rank: 5, note: "固定只坐最後一排", cheat_group: [] },
+            { id: "06", name: "黃雅婷", gender: "F", group: "B", rank: 30, note: "", cheat_group: [] },
+            { id: "07", name: "郭靖", gender: "M", group: "A", rank: 10, note: "", cheat_group: [] },
+            { id: "08", name: "黃蓉", gender: "F", group: "B", rank: 2, note: "", cheat_group: [] },
+            { id: "09", name: "楊過", gender: "M", group: "A", rank: 12, note: "", cheat_group: [] },
+            { id: "10", name: "小龍女", gender: "F", group: "B", rank: 4, note: "", cheat_group: [] }
+        ];
+
+        let layoutMatrix = [];
+        let morningData = [];
+        let afternoonData = [];
+        let draggedCellInfo = null;
+        let isStudentListOpen = true;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initLayoutMatrix(6, 5);
+            parseStudentConstraints();
+            renderStudentTable();
+            updateExamTitles();
+            updateDeskPositionDOM();
+            renderLayoutEditor();
+            generateSeatingCharts();
+        });
+
+        function updateExamTitles() {
+            const schoolName = document.getElementById('schoolName').value.trim() || "";
+            const schoolYear = document.getElementById('schoolYear').value.trim() || "";
+            const semester = document.getElementById('semester').value;
+            const examTerm = document.getElementById('examTerm').value;
+            const className = document.getElementById('className').value.trim() || "班級";
+            const morningDate = document.getElementById('morningDate').value.trim() || "上午";
+            const afternoonDate = document.getElementById('afternoonDate').value.trim() || "下午";
+
+            const studentCount = globalStudents.length;
+            let activeSeatCount = 0;
+            if (layoutMatrix && layoutMatrix.length > 0) {
+                activeSeatCount = layoutMatrix.flat().filter(Boolean).length;
+            }
+
+            const countA = globalStudents.filter(s => s.group === 'A').length;
+            const countB = globalStudents.filter(s => s.group === 'B').length;
+
+            const headerTitle = `${schoolName} ${schoolYear}學年度第${semester}學期第${examTerm}次段考座位表`;
+            const subInfoText = `<div>班級：<span class="text-slate-800 font-bold">${className}</span> ｜ 學生人數：<span class="text-blue-600 font-bold">${studentCount}</span> 人 ｜ 教室總座位：<span class="text-emerald-600 font-bold">${activeSeatCount}</span> 個</div><div class="text-xs font-bold text-slate-700">A組：${countA}人 , B組：${countB}人</div>`;
+
+            document.getElementById('morningTitleMain').innerText = `${headerTitle} (${morningDate})`;
+            document.getElementById('morningTitleSub').innerHTML = subInfoText;
+
+            document.getElementById('afternoonTitleMain').innerText = `${headerTitle} (${afternoonDate})`;
+            document.getElementById('afternoonTitleSub').innerHTML = subInfoText;
+        }
+
+        function onTeacherDeskPosChange() {
+            updateDeskPositionDOM();
+            renderLayoutEditor();
+            if (morningData && morningData.length > 0) {
+                renderSeatingGrid('morningGrid', morningData, 'morning');
+                renderSeatingGrid('afternoonGrid', afternoonData, 'afternoon');
+            }
+        }
+
+        function updateDeskPositionDOM() {
+            const pos = document.getElementById('teacherDeskPos').value;
+
+            const layoutContainer = document.getElementById('layoutEditorContainer');
+            const layoutDesk = document.getElementById('deskBannerLayout');
+            const layoutGrid = document.getElementById('layoutEditorGrid');
+
+            if (pos === 'top') {
+                layoutContainer.insertBefore(layoutDesk, layoutGrid);
+                layoutDesk.classList.remove('mt-4');
+                layoutDesk.classList.add('mb-4');
+            } else {
+                layoutContainer.appendChild(layoutDesk);
+                layoutDesk.classList.remove('mb-4');
+                layoutDesk.classList.add('mt-4');
+            }
+
+            ['morning', 'afternoon'].forEach(session => {
+                const card = document.getElementById(`${session}Card`);
+                const desk = document.getElementById(`${session}DeskBanner`);
+                const grid = document.getElementById(`${session}Grid`);
+
+                if (card && desk && grid) {
+                    if (pos === 'top') {
+                        card.insertBefore(desk, grid);
+                        desk.classList.remove('mt-4');
+                        desk.classList.add('mb-4');
+                    } else {
+                        card.appendChild(desk);
+                        desk.classList.remove('mb-4');
+                        desk.classList.add('mt-4');
+                    }
+                }
+            });
+        }
+
+        function toggleStudentList() {
+            const container = document.getElementById('studentListContainer');
+            const btn = document.getElementById('toggleStudentListBtn');
+
+            isStudentListOpen = !isStudentListOpen;
+
+            if (isStudentListOpen) {
+                container.classList.remove('hidden');
+                btn.innerHTML = '<span>▲</span> 收起名單';
+                btn.className = "bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 transition flex items-center gap-1 shadow-sm";
+            } else {
+                container.classList.add('hidden');
+                btn.innerHTML = `<span>▼</span> 展開名單 (${globalStudents.length} 人)`;
+                btn.className = "bg-blue-50 hover:bg-blue-100 active:scale-95 text-blue-700 text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-300 transition flex items-center gap-1 shadow-sm";
+            }
+        }
+
+        function initLayoutMatrix(rows, cols) {
+            layoutMatrix = Array.from({ length: rows }, () => Array(cols).fill(true));
+        }
+
+        function onDimensionChange() {
+            const rows = parseInt(document.getElementById('rowSlider').value);
+            const cols = parseInt(document.getElementById('colSlider').value);
+            document.getElementById('rowValue').innerText = rows;
+            document.getElementById('colValue').innerText = cols;
+
+            initLayoutMatrix(rows, cols);
+            renderLayoutEditor();
+            updateExamTitles();
+        }
+
+        function parseStudentConstraints() {
+            globalStudents.forEach(s => {
+                const note = s.note || "";
+                s.is_fixed_seat = false;
+                s.fixed_r = null;
+                s.fixed_c = null;
+                s.row_rule = null;
+
+                const posMatch = note.match(/(?:固定|指定)(?:座位)?[\(（]?(\d+)[,，\-–\s]+(\d+)[\)）]?/);
+                if (posMatch) {
+                    s.is_fixed_seat = true;
+                    s.fixed_r = parseInt(posMatch[1]) - 1;
+                    s.fixed_c = parseInt(posMatch[2]) - 1;
+                } else if (note.includes("指定固定座位") || note.includes("固定座位")) {
+                    s.is_fixed_seat = true;
+                }
+
+                if (note.includes("第一排") || note.includes("前排")) {
+                    s.row_rule = 'first';
+                } else if (note.includes("最後一排") || note.includes("後排")) {
+                    s.row_rule = 'last';
+                }
+
+                s.is_special = s.is_fixed_seat || !!s.row_rule || note.length > 0;
+            });
+        }
+
+        function renderLayoutEditor() {
+            const container = document.getElementById('layoutEditorGrid');
+            const rows = layoutMatrix.length;
+            const cols = layoutMatrix[0].length;
+            const pos = document.getElementById('teacherDeskPos').value;
+
+            container.style.gridTemplateColumns = `minmax(60px, auto) repeat(${cols}, minmax(0, 1fr))`;
+            container.innerHTML = '';
+
+            const appendColHeaders = () => {
+                const cornerHeader = document.createElement('div');
+                container.appendChild(cornerHeader);
+                for (let c = 0; c < cols; c++) {
+                    const colLabel = document.createElement('div');
+                    colLabel.className = "text-center text-xs font-bold text-slate-500 py-1 bg-slate-100 rounded border border-slate-200/60";
+                    colLabel.innerText = `第 ${c+1} 列`;
+                    container.appendChild(colLabel);
+                }
+            };
+
+            if (pos === 'top') appendColHeaders();
+
+            let activeCount = 0;
+
+            for (let r = 0; r < rows; r++) {
+                const displayRow = (pos === 'top') ? (r + 1) : (rows - r);
+
+                const rowLabel = document.createElement('div');
+                rowLabel.className = "flex items-center justify-center text-xs font-bold text-slate-600 bg-slate-200/70 rounded-lg p-1.5 shadow-xs";
+                rowLabel.innerText = `第 ${displayRow} 排`;
+                container.appendChild(rowLabel);
+
+                for (let c = 0; c < cols; c++) {
+                    const isActive = layoutMatrix[r][c];
+                    if (isActive) activeCount++;
+
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.onclick = () => toggleSeatActive(r, c);
+
+                    if (isActive) {
+                        btn.className = "p-2 rounded-lg text-xs font-bold border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition shadow-sm flex flex-col items-center justify-center";
+                        btn.innerHTML = `<span>🟢 可坐</span>`;
+                    } else {
+                        btn.className = "p-2 rounded-lg text-xs font-bold border border-dashed border-slate-300 bg-slate-200 text-slate-400 hover:bg-slate-300 transition flex flex-col items-center justify-center opacity-60";
+                        btn.innerHTML = `<span>❌ 無座位</span>`;
+                    }
+                    container.appendChild(btn);
+                }
+            }
+
+            if (pos === 'bottom') appendColHeaders();
+
+            document.getElementById('studentNumText').innerText = globalStudents.length;
+            document.getElementById('activeSeatText').innerText = activeCount;
+
+            const badge = document.getElementById('seatCounterBadge');
+            if (activeCount < globalStudents.length) {
+                badge.className = "text-xs font-bold px-3 py-1.5 rounded-lg border bg-red-50 border-red-200 text-red-600";
+            } else {
+                badge.className = "text-xs font-bold px-3 py-1.5 rounded-lg border bg-emerald-50 border-emerald-200 text-emerald-700";
+            }
+        }
+
+        function toggleSeatActive(r, c) {
+            layoutMatrix[r][c] = !layoutMatrix[r][c];
+            renderLayoutEditor();
+            updateExamTitles();
+        }
+
+        function renderStudentTable() {
+            const tbody = document.getElementById('studentTableBody');
+            tbody.innerHTML = '';
+
+            globalStudents.forEach((s, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-1.5">
+                        <input type="text" value="${s.id}" onchange="updateStudentField(${idx}, 'id', this.value)" class="w-full font-mono text-center border border-slate-200 rounded p-1 text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+                    </td>
+                    <td class="p-1.5">
+                        <input type="text" value="${s.name}" onchange="updateStudentField(${idx}, 'name', this.value)" class="w-full font-bold border border-slate-200 rounded p-1 text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+                    </td>
+                    <td class="p-1.5">
+                        <select onchange="updateStudentField(${idx}, 'gender', this.value)" class="w-full border border-slate-200 rounded p-1 text-xs bg-white outline-none">
+                            <option value="M" ${s.gender === 'M' ? 'selected' : ''}>男</option>
+                            <option value="F" ${s.gender === 'F' ? 'selected' : ''}>女</option>
+                        </select>
+                    </td>
+                    <td class="p-1.5">
+                        <select onchange="updateStudentField(${idx}, 'group', this.value)" class="w-full border border-slate-200 rounded p-1 text-xs bg-white font-bold outline-none ${s.group === 'A' ? 'text-blue-600' : s.group === 'B' ? 'text-purple-600' : ''}">
+                            <option value="" ${!s.group ? 'selected' : ''}>- 無 -</option>
+                            <option value="A" ${s.group === 'A' ? 'selected' : ''}>A 組</option>
+                            <option value="B" ${s.group === 'B' ? 'selected' : ''}>B 組</option>
+                        </select>
+                    </td>
+                    <td class="p-1.5">
+                        <input type="number" value="${s.rank || ''}" placeholder="無" onchange="updateStudentField(${idx}, 'rank', this.value)" class="w-full text-center border border-slate-200 rounded p-1 text-xs outline-none">
+                    </td>
+                    <td class="p-1.5">
+                        <input type="text" value="${s.note || ''}" placeholder="例如: 固定只坐第一排" onchange="updateStudentField(${idx}, 'note', this.value)" class="w-full border border-slate-200 rounded p-1 text-xs focus:ring-1 focus:ring-blue-500 outline-none">
+                    </td>
+                    <td class="p-1.5">
+                        <input type="text" value="${s.cheat_group ? s.cheat_group.join(',') : ''}" placeholder="02,05" onchange="updateStudentField(${idx}, 'cheat_group', this.value)" class="w-full border border-slate-200 rounded p-1 text-xs text-slate-600 outline-none">
+                    </td>
+                    <td class="p-1.5 text-center">
+                        <button onclick="deleteStudent(${idx})" class="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition text-xs" title="刪除學生">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            if (!isStudentListOpen) {
+                document.getElementById('toggleStudentListBtn').innerHTML = `<span>▼</span> 展開名單 (${globalStudents.length} 人)`;
+            }
+
+            renderLayoutEditor();
+            updateExamTitles();
+        }
+
+        function updateStudentField(index, field, value) {
+            if (field === 'cheat_group') {
+                globalStudents[index].cheat_group = value.split(/[,，、\s]+/).filter(Boolean);
+            } else if (field === 'rank') {
+                globalStudents[index].rank = parseInt(value) || 0;
+            } else {
+                globalStudents[index][field] = value;
+            }
+
+            parseStudentConstraints();
+            renderStudentTable();
+        }
+
+        function addStudent() {
+            const nextId = String(globalStudents.length + 1).padStart(2, '0');
+            globalStudents.push({
+                id: nextId,
+                name: `學生${nextId}`,
+                gender: "M",
+                group: (globalStudents.length % 2 === 0) ? "A" : "B",
+                rank: 0,
+                note: "",
+                cheat_group: []
+            });
+            parseStudentConstraints();
+            renderStudentTable();
+        }
+
+        function deleteStudent(index) {
+            globalStudents.splice(index, 1);
+            parseStudentConstraints();
+            renderStudentTable();
+        }
+
+        function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('fileNameDisplay').innerText = `已載入檔案：${file.name}`;
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+                    let parsedStudents = [];
+
+                    jsonRows.forEach((row) => {
+                        const getVal = (keys) => {
+                            for (let k of keys) {
+                                const foundKey = Object.keys(row).find(rk => rk.trim().toLowerCase().includes(k));
+                                if (foundKey && row[foundKey] !== undefined) return String(row[foundKey]).trim();
+                            }
+                            return "";
+                        };
+
+                        let id = getVal(['座號', '學號', 'id']);
+                        let name = getVal(['姓名', '名字', 'name']);
+                        let genderStr = getVal(['性別', 'gender']);
+                        let groupStr = getVal(['組別', '分組', 'group']).toUpperCase();
+                        let rankStr = getVal(['名次', '成績', 'rank']);
+                        let noteStr = getVal(['特殊生', '備註', 'note']);
+                        let cheatStr = getVal(['避開', '作弊', 'cheat']);
+
+                        if (id && name) {
+                            let gender = (genderStr.includes('女') || genderStr.toUpperCase() === 'F') ? 'F' : 'M';
+                            let group = groupStr.includes('A') ? 'A' : groupStr.includes('B') ? 'B' : '';
+                            let rank = parseInt(rankStr) || 0;
+                            let cheat_group = cheatStr ? cheatStr.split(/[,，、\s]+/).filter(Boolean) : [];
+
+                            parsedStudents.push({ id, name, gender, group, rank, note: noteStr, cheat_group });
+                        }
+                    });
+
+                    if (parsedStudents.length > 0) {
+                        globalStudents = parsedStudents;
+                        parseStudentConstraints();
+                        renderStudentTable();
+                        alert(`成功讀取 ${globalStudents.length} 位學生名單！`);
+                    } else {
+                        alert("未能解析出學生資料，請確認 Excel 包含「座號」與「姓名」欄位。");
+                    }
+                } catch (err) {
+                    alert("解析檔案時發生錯誤：" + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function buildHorizontalAdjacencyMap(grid) {
+            const rows = grid.length;
+            const cols = grid[0].length;
+            const adjMap = {};
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const s = grid[r][c];
+                    if (!s) continue;
+                    if (!adjMap[s.id]) adjMap[s.id] = new Set();
+
+                    for (let dc of [-1, 1]) {
+                        let nc = c + dc;
+                        if (nc >= 0 && nc < cols) {
+                            let neighbor = grid[r][nc];
+                            if (neighbor) adjMap[s.id].add(neighbor.id);
+                        }
+                    }
+                }
+            }
+            return adjMap;
+        }
+
+        function runSimulation(rows, cols, students, morningSideBySideMap = null) {
+            const isABEnabled = document.getElementById('enableABGroup')?.checked;
+
+            let activeSpots = [];
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (layoutMatrix[r][c]) activeSpots.push([r, c]);
+                }
+            }
+
+            if (students.length > activeSpots.length) {
+                throw new Error(`學生總人數 (${students.length}) 超過可用總座位數 (${activeSpots.length})！請增加行列數或啟用更多座位。`);
+            }
+
+            let fixedAssignments = new Map();
+            let occupiedByFixed = new Set();
+
+            students.forEach(s => {
+                if (s.is_fixed_seat) {
+                    let targetR = s.fixed_r;
+                    let targetC = s.fixed_c;
+
+                    if (targetR === null || targetC === null || targetR < 0 || targetR >= rows || targetC < 0 || targetC >= cols || !layoutMatrix[targetR][targetC]) {
+                        const spot = activeSpots.find(([ar, ac]) => {
+                            if (occupiedByFixed.has(`${ar}-${ac}`)) return false;
+                            if (isABEnabled && s.group) {
+                                const expectedGroup = (ac % 2 === 0) ? 'A' : 'B';
+                                return s.group === expectedGroup;
+                            }
+                            return true;
+                        });
+                        if (spot) {
+                            targetR = spot[0];
+                            targetC = spot[1];
+                        }
+                    }
+
+                    if (targetR !== null && targetC !== null) {
+                        fixedAssignments.set(s.id, [targetR, targetC]);
+                        occupiedByFixed.add(`${targetR}-${targetC}`);
+                    }
+                }
+            });
+
+            const sortedByRank = [...students].filter(s => s.rank > 0).sort((a, b) => a.rank - b.rank);
+            const top5Ids = new Set(sortedByRank.slice(0, 5).map(s => s.id));
+            const bottomCount = Math.max(1, Math.floor(students.length / 10));
+            const bottomIds = new Set(sortedByRank.slice(-bottomCount).map(s => s.id));
+
+            for (let attempt = 0; attempt < 3000; attempt++) {
+                let grid = Array.from({ length: rows }, () => Array(cols).fill(null));
+                let unassignedStudents = [];
+
+                students.forEach(s => {
+                    if (fixedAssignments.has(s.id)) {
+                        const [fr, fc] = fixedAssignments.get(s.id);
+                        grid[fr][fc] = s;
+                    } else {
+                        unassignedStudents.push(s);
+                    }
+                });
+
+                let emptySpots = activeSpots.filter(([ar, ac]) => !grid[ar][ac]);
+                shuffle(emptySpots);
+                shuffle(unassignedStudents);
+
+                let success = true;
+
+                for (let s of unassignedStudents) {
+                    let placed = false;
+
+                    let candidateSpots = [...emptySpots].sort((a, b) => {
+                        if (!isABEnabled || !s.group) return 0;
+                        const matchA = ((a[1] % 2 === 0 ? 'A' : 'B') === s.group);
+                        const matchB = ((b[1] % 2 === 0 ? 'A' : 'B') === s.group);
+                        if (matchA && !matchB) return -1;
+                        if (!matchA && matchB) return 1;
+                        return 0;
+                    });
+
+                    for (let spotCandidate of candidateSpots) {
+                        let [r, c] = spotCandidate;
+
+                        if (s.row_rule === 'first' && r !== 0) continue;
+                        if (s.row_rule === 'last' && r !== rows - 1) continue;
+
+                        let top5Conflict = false;
+                        let bottomConflict = false;
+                        let cheatConflict = false;
+                        let sideBySideConflict = false;
+
+                        for (let dr = -1; dr <= 1; dr++) {
+                            for (let dc = -1; dc <= 1; dc++) {
+                                if (dr === 0 && dc === 0) continue;
+                                let nr = r + dr, nc = c + dc;
+                                if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+                                    let neighbor = grid[nr][nc];
+                                    if (neighbor) {
+                                        if (top5Ids.has(s.id) && top5Ids.has(neighbor.id)) top5Conflict = true;
+                                        if (bottomIds.has(s.id) && bottomIds.has(neighbor.id)) bottomConflict = true;
+                                        if (s.cheat_group && s.cheat_group.includes(neighbor.id)) cheatConflict = true;
+
+                                        if (dr === 0 && morningSideBySideMap && morningSideBySideMap[s.id] && morningSideBySideMap[s.id].has(neighbor.id)) {
+                                            sideBySideConflict = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (top5Conflict || bottomConflict || cheatConflict || sideBySideConflict) continue;
+
+                        grid[r][c] = s;
+                        const spotIdx = emptySpots.findIndex(([er, ec]) => er === r && ec === c);
+                        if (spotIdx !== -1) emptySpots.splice(spotIdx, 1);
+                        placed = true;
+                        break;
+                    }
+
+                    if (!placed) {
+                        success = false;
+                        break;
+                    }
+                }
+
+                if (success) return grid;
+            }
+
+            throw new Error("無法在當前限制條件下排定所有座位，請嘗試放寬限制條件或重新嘗試！");
+        }
+
+        function generateSeatingCharts() {
+            const errorDiv = document.getElementById('errorMsg');
+            errorDiv.classList.add('hidden');
+            errorDiv.innerText = '';
+
+            try {
+                parseStudentConstraints();
+                updateExamTitles();
+                const rows = layoutMatrix.length;
+                const cols = layoutMatrix[0].length;
+
+                morningData = runSimulation(rows, cols, globalStudents, null);
+                const morningAdj = buildHorizontalAdjacencyMap(morningData);
+                afternoonData = runSimulation(rows, cols, globalStudents, morningAdj);
+
+                renderSeatingGrid('morningGrid', morningData, 'morning');
+                renderSeatingGrid('afternoonGrid', afternoonData, 'afternoon');
+            } catch (err) {
+                errorDiv.innerText = err.message;
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        function renderSeatingGrid(containerId, grid, session) {
+            const container = document.getElementById(containerId);
+            const rows = grid.length;
+            const cols = grid[0].length;
+            const pos = document.getElementById('teacherDeskPos').value;
+
+            container.style.gridTemplateColumns = `minmax(60px, auto) repeat(${cols}, minmax(0, 1fr))`;
+            container.innerHTML = '';
+
+            const appendColHeaders = () => {
+                const cornerHeader = document.createElement('div');
+                container.appendChild(cornerHeader);
+
+                for (let c = 0; c < cols; c++) {
+                    const colLabel = document.createElement('div');
+                    colLabel.className = "text-center text-xs font-bold text-slate-500 py-1 bg-slate-100/80 rounded-md border border-slate-200/80";
+                    colLabel.innerText = `第 ${c+1} 列`;
+                    container.appendChild(colLabel);
+                }
+            };
+
+            if (pos === 'top') {
+                appendColHeaders();
+            }
+
+            for (let r = 0; r < rows; r++) {
+                const displayRow = (pos === 'top') ? (r + 1) : (rows - r);
+
+                const rowLabel = document.createElement('div');
+                rowLabel.className = "flex items-center justify-center text-xs font-bold text-slate-600 bg-slate-100 rounded-xl p-2 shadow-xs border border-slate-200";
+                rowLabel.innerText = `第 ${displayRow} 排`;
+                container.appendChild(rowLabel);
+
+                for (let c = 0; c < cols; c++) {
+                    const cell = document.createElement('div');
+                    const student = grid[r][c];
+
+                    if (!layoutMatrix[r][c]) {
+                        cell.className = "p-2.5 rounded-xl border border-dashed border-slate-200 bg-slate-100/50 flex flex-col items-center justify-center min-h-[72px] opacity-40";
+                        cell.innerHTML = `<span class="text-sm font-extrabold text-slate-700">✕</span>`;
+                    } else if (!student) {
+                        cell.className = "p-2.5 rounded-xl border border-dashed border-slate-300 bg-white flex flex-col items-center justify-center min-h-[72px]";
+                        cell.innerHTML = `<span class="text-xs text-slate-400">（空位）</span>`;
+                    } else {
+                        cell.className = "p-2.5 rounded-xl border shadow-sm flex flex-col items-center justify-center min-h-[72px] cursor-move transition hover:shadow-md select-none relative";
+                        
+                        if (student.group === 'B') {
+                            cell.classList.add('border-slate-300', 'bg-slate-100');
+                        } else {
+                            cell.classList.add('border-slate-300', 'bg-white');
+                        }
+
+                        cell.draggable = true;
+                        cell.dataset.r = r;
+                        cell.dataset.c = c;
+                        cell.dataset.session = session;
+
+                        let specialHtml = '';
+                        if (student.is_special) {
+                            specialHtml = `<span class="text-[9px] text-amber-600 font-semibold truncate max-w-full mt-0.5" title="${student.note}">⭐ ${student.note}</span>`;
+                        }
+
+                        const seatNo = !isNaN(student.id) ? parseInt(student.id, 10) : student.id;
+                        const groupText = student.group ? ` (${student.group}組)` : '';
+
+                        cell.innerHTML = `
+                            <div class="text-base font-extrabold text-slate-900">${student.name}</div>
+                            <div class="text-xs font-mono font-bold text-slate-700 mt-0.5">${seatNo}${groupText}</div>
+                            ${specialHtml}
+                        `;
+
+                        cell.addEventListener('dragstart', (e) => {
+                            draggedCellInfo = { r, c, session };
+                            e.dataTransfer.setData('text/plain', '');
+                            cell.classList.add('opacity-40');
+                        });
+
+                        cell.addEventListener('dragend', () => {
+                            cell.classList.remove('opacity-40');
+                        });
+
+                        cell.addEventListener('dragover', (e) => {
+                            e.preventDefault();
+                            cell.classList.add('border-blue-500', 'bg-blue-100');
+                        });
+
+                        cell.addEventListener('dragleave', () => {
+                            cell.classList.remove('border-blue-500', 'bg-blue-100');
+                        });
+
+                        cell.addEventListener('drop', (e) => {
+                            e.preventDefault();
+                            cell.classList.remove('border-blue-500', 'bg-blue-100');
+                            if (!draggedCellInfo || draggedCellInfo.session !== session) return;
+
+                            const targetR = r;
+                            const targetC = c;
+                            const srcR = draggedCellInfo.r;
+                            const srcC = draggedCellInfo.c;
+
+                            const targetData = session === 'morning' ? morningData : afternoonData;
+                            const temp = targetData[srcR][srcC];
+                            targetData[srcR][srcC] = targetData[targetR][targetC];
+                            targetData[targetR][targetC] = temp;
+
+                            renderSeatingGrid(containerId, targetData, session);
+                        });
+                    }
+                    container.appendChild(cell);
+                }
+            }
+
+            if (pos === 'bottom') {
+                appendColHeaders();
+            }
+        }
+
+        // 重點修改：匯出適合黑白列印與對應圖片樣式的 Excel
+        function exportSeatingToExcel() {
+            if (!morningData || morningData.length === 0) {
+                alert("請先產生座位表再進行匯出！");
+                return;
+            }
+
+            const schoolName = document.getElementById('schoolName').value.trim() || "";
+            const schoolYear = document.getElementById('schoolYear').value.trim() || "";
+            const semester = document.getElementById('semester').value;
+            const examTerm = document.getElementById('examTerm').value;
+            const className = document.getElementById('className').value.trim() || "班級";
+            const morningDate = document.getElementById('morningDate').value.trim() || "上午";
+            const afternoonDate = document.getElementById('afternoonDate').value.trim() || "下午";
+
+            const studentCount = globalStudents.length;
+            const activeSeatCount = layoutMatrix.flat().filter(Boolean).length;
+            const pos = document.getElementById('teacherDeskPos').value;
+
+            // 計算 A/B 組人數
+            const countA = globalStudents.filter(s => s.group === 'A').length;
+            const countB = globalStudents.filter(s => s.group === 'B').length;
+
+            const fullExamTitle = `${schoolName} ${schoolYear}學年度第${semester}學期第${examTerm}次段考座位表`;
+
+            const wb = XLSX.utils.book_new();
+
+            const buildStyledSheet = (grid, sessionDateText) => {
+                const rows = grid.length;
+                const cols = grid[0].length;
+                const totalCols = cols + 1; // 加上「第X排」標籤欄
+                const ws = {};
+                const merges = [];
+                const rowHeights = [];
+
+                const getRef = (r, c) => XLSX.utils.encode_cell({ r, c });
+
+                let currentR = 0;
+
+                // 邊框設定
+                const blackBorder = {
+                    top: { style: "thin", color: { rgb: "000000" } },
+                    bottom: { style: "thin", color: { rgb: "000000" } },
+                    left: { style: "thin", color: { rgb: "000000" } },
+                    right: { style: "thin", color: { rgb: "000000" } }
+                };
+
+                const thickBorder = {
+                    top: { style: "medium", color: { rgb: "000000" } },
+                    bottom: { style: "medium", color: { rgb: "000000" } },
+                    left: { style: "medium", color: { rgb: "000000" } },
+                    right: { style: "medium", color: { rgb: "000000" } }
+                };
+
+                // 標題樣式（純白底黑字，大字體）
+                const titleStyle = {
+                    font: { name: '微軟正黑體', sz: 16, bold: true, color: { rgb: "000000" } },
+                    alignment: { horizontal: "center", vertical: "center" }
+                };
+
+                for (let c = 0; c < totalCols; c++) {
+                    ws[getRef(currentR, c)] = {
+                        v: c === 0 ? `${fullExamTitle} (${sessionDateText})` : "",
+                        t: 's',
+                        s: titleStyle
+                    };
+                }
+                merges.push({ s: { r: currentR, c: 0 }, e: { r: currentR, c: totalCols - 1 } });
+                rowHeights.push({ hpt: 32 });
+                currentR++;
+
+                // 副標題 1：班級、學生人數、教室總座位
+                const subTitleStyle = {
+                    font: { name: '微軟正黑體', sz: 11, bold: true, color: { rgb: "000000" } },
+                    alignment: { horizontal: "center", vertical: "center" }
+                };
+                const subText1 = `班級：${className}   │   學生人數：${studentCount} 人   │   教室總座位：${activeSeatCount} 個`;
+
+                for (let c = 0; c < totalCols; c++) {
+                    ws[getRef(currentR, c)] = {
+                        v: c === 0 ? subText1 : "",
+                        t: 's',
+                        s: subTitleStyle
+                    };
+                }
+                merges.push({ s: { r: currentR, c: 0 }, e: { r: currentR, c: totalCols - 1 } });
+                rowHeights.push({ hpt: 22 });
+                currentR++;
+
+                // 副標題 2：A組、B組人數
+                const subText2 = `A組：${countA}人 , B組：${countB}人`;
+                for (let c = 0; c < totalCols; c++) {
+                    ws[getRef(currentR, c)] = {
+                        v: c === 0 ? subText2 : "",
+                        t: 's',
+                        s: subTitleStyle
+                    };
+                }
+                merges.push({ s: { r: currentR, c: 0 }, e: { r: currentR, c: totalCols - 1 } });
+                rowHeights.push({ hpt: 22 });
+                currentR++;
+
+                // 空行分隔
+                ws[getRef(currentR, 0)] = { v: "", t: 's' };
+                rowHeights.push({ hpt: 8 });
+                currentR++;
+
+                // 講桌欄位計算 (置中顯示)
+                const deskStartCol = Math.max(1, Math.floor((totalCols - 2) / 2) + 1);
+                const deskEndCol = Math.min(cols, deskStartCol + 1);
+
+                const deskStyle = {
+                    font: { name: '微軟正黑體', sz: 12, bold: true, color: { rgb: "000000" } },
+                    fill: { fgColor: { rgb: "FFFFFF" } },
+                    alignment: { horizontal: "center", vertical: "center" },
+                    border: thickBorder
+                };
+
+                const headerLabelStyle = {
+                    font: { name: '微軟正黑體', sz: 11, bold: true, color: { rgb: "000000" } },
+                    fill: { fgColor: { rgb: "FFFFFF" } },
+                    alignment: { horizontal: "center", vertical: "center" },
+                    border: blackBorder
+                };
+
+                // 寫入「第 X 列」標題列
+                const writeColHeaderRow = () => {
+                    ws[getRef(currentR, 0)] = { v: "", t: 's', s: { border: blackBorder } };
+                    for (let c = 0; c < cols; c++) {
+                        ws[getRef(currentR, c + 1)] = { v: `第 ${c + 1} 列`, t: 's', s: headerLabelStyle };
+                    }
+                    rowHeights.push({ hpt: 24 });
+                    currentR++;
+                };
+
+                // 寫入講桌列
+                const writeDeskRow = () => {
+                    for (let c = 0; c < totalCols; c++) {
+                        if (c >= deskStartCol && c <= deskEndCol) {
+                            ws[getRef(currentR, c)] = {
+                                v: c === deskStartCol ? "講 桌" : "",
+                                t: 's',
+                                s: deskStyle
+                            };
+                        } else {
+                            ws[getRef(currentR, c)] = { v: "", t: 's' };
+                        }
+                    }
+                    merges.push({ s: { r: currentR, c: deskStartCol }, e: { r: currentR, c: deskEndCol } });
+                    rowHeights.push({ hpt: 28 });
+                    currentR++;
+                };
+
+                if (pos === 'top') {
+                    writeDeskRow();
+                    ws[getRef(currentR, 0)] = { v: "", t: 's' };
+                    rowHeights.push({ hpt: 6 });
+                    currentR++;
+                }
+
+                // 寫入座位表格內容 (顯示 第 N 排 到 第 1 排)
+                for (let r = 0; r < rows; r++) {
+                    const displayRow = (pos === 'top') ? (r + 1) : (rows - r);
+                    rowHeights.push({ hpt: 45 }); // 高度調高，容納大字體
+
+                    // 左側排數標籤
+                    ws[getRef(currentR, 0)] = {
+                        v: `第 ${displayRow} 排`,
+                        t: 's',
+                        s: headerLabelStyle
+                    };
+
+                    for (let c = 0; c < cols; c++) {
+                        const cellRef = getRef(currentR, c + 1);
+                        const student = grid[r][c];
+                        const isActive = layoutMatrix[r][c];
+
+                        let cellVal = "";
+                        let fillRGB = "FFFFFF"; // 預設白底
+                        let fontSize = 12; // 放大字體
+                        let isBold = true;
+
+                        if (!isActive) {
+                            cellVal = "✕";
+                            fontSize = 16;
+                        } else if (!student) {
+                            cellVal = "";
+                        } else {
+                            const seatNo = !isNaN(student.id) ? parseInt(student.id, 10) : student.id;
+                            const groupText = student.group ? ` (${student.group}組)` : "";
+                            cellVal = `${student.name}\n${seatNo}${groupText}`;
+
+                            // B組標示淺灰底以利黑白列印分辨 (#E0E0E0)，A組留白
+                            if (student.group === 'B') {
+                                fillRGB = "E0E0E0";
+                            } else {
+                                fillRGB = "FFFFFF";
+                            }
+                        }
+
+                        ws[cellRef] = {
+                            v: cellVal,
+                            t: 's',
+                            s: {
+                                font: { name: '微軟正黑體', sz: fontSize, bold: isBold, color: { rgb: "000000" } },
+                                fill: { fgColor: { rgb: fillRGB } },
+                                alignment: { horizontal: "center", vertical: "center", wrapText: true },
+                                border: blackBorder
+                            }
+                        };
+                    }
+                    currentR++;
+                }
+
+                // 寫入欄標題列（第 1 列 ~ 第 N 列）
+                writeColHeaderRow();
+
+                if (pos === 'bottom') {
+                    ws[getRef(currentR, 0)] = { v: "", t: 's' };
+                    rowHeights.push({ hpt: 6 });
+                    currentR++;
+                    writeDeskRow();
+                }
+
+                const maxCell = getRef(currentR - 1, totalCols - 1);
+                ws['!ref'] = `A1:${maxCell}`;
+                ws['!merges'] = merges;
+                ws['!rows'] = rowHeights;
+
+                const colWidths = [{ wch: 10 }]; // 排數欄寬
+                for (let c = 0; c < cols; c++) colWidths.push({ wch: 18 }); // 座位欄寬
+                ws['!cols'] = colWidths;
+
+                return ws;
+            };
+
+            const morningSheet = buildStyledSheet(morningData, morningDate);
+            const afternoonSheet = buildStyledSheet(afternoonData, afternoonDate);
+
+            const sanitizeName = (str) => str.replace(/[:\\/\?\*\[\]]/g, '.').substring(0, 30);
+
+            XLSX.utils.book_append_sheet(wb, morningSheet, sanitizeName(`${morningDate}座位表`));
+            XLSX.utils.book_append_sheet(wb, afternoonSheet, sanitizeName(`${afternoonDate}座位表`));
+
+            XLSX.writeFile(wb, `${className}_段考座位表.xlsx`);
+        }
+
+        function downloadTemplate() {
+            const templateData = [
+                ["座號", "姓名", "性別", "組別", "名次", "備註", "避開對象"],
+                ["01", "王小明", "男", "A", 1, "", "02"],
+                ["02", "李美玲", "女", "B", 15, "", "01"],
+                ["03", "張偉", "男", "A", 3, "固定只坐第一排", ""],
+                ["04", "陳淑芬", "女", "B", 28, "指定固定座位(1,1)", ""],
+                ["05", "林志豪", "男", "A", 5, "固定只坐最後一排", ""]
+            ];
+
+            const ws = XLSX.utils.aoa_to_sheet(templateData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "學生名單範本");
+            XLSX.writeFile(wb, "段考學生名單匯入範本.xlsx");
+        }
+    </script>
+</body>
+</html>
