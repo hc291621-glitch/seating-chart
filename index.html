@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智慧型段考座位表產生器 - 新北市光仁中學</title>
+    <title>段考座位表產生器 - BY S.Fen</title>
     <!-- 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入支援樣式與邊框匯出的 xlsx-js-style 套件 -->
@@ -19,10 +19,10 @@
         <!-- 頁頭 -->
         <header class="text-center mb-8">
             <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight flex items-center justify-center gap-2">
-                🎓 智慧型段考座位表產生器
+                🎓 段考座位表產生器-全校版
             </h1>
             <p class="text-slate-600 mt-2 text-sm md:text-base">
-                支援完整學校與段考抬頭 ‧ 講桌方位自動切換 ‧ 黑白列印 Excel 匯出
+                支援全校跨年級多班級匯入 ‧ 講桌方位自動切換 ‧ 成績名次防作弊分散 (前5名/倒數分散) ‧ 可指定避開對象 ‧ 跨場次上下午場不重複鄰座 ‧ 黑白列印 Excel 雙分頁匯出
             </p>
         </header>
 
@@ -60,14 +60,21 @@
                 </select>
             </div>
 
-            <!-- 第二排：班級、日期、講桌 -->
+            <!-- 第二排：全校班級選擇、班級名稱、日期 -->
+            <div class="lg:col-span-3">
+                <label class="block text-xs font-bold text-slate-700 mb-1">🏫 選擇全校班級</label>
+                <select id="classSelect" onchange="switchClass(this.value)" class="w-full border border-blue-300 bg-blue-50/60 rounded-xl p-2 text-sm font-bold text-blue-900 focus:ring-2 focus:ring-blue-500 outline-none">
+                    <option value="">- 單一班級 / 請匯入全校名單 -</option>
+                </select>
+            </div>
+
             <div class="lg:col-span-3">
                 <label class="block text-xs font-bold text-slate-700 mb-1">班級名稱</label>
                 <input type="text" id="className" value="國三忠" onchange="updateExamTitles()" class="w-full border border-slate-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-bold text-slate-800">
             </div>
 
             <div class="lg:col-span-3">
-                <label class="block text-xs font-bold text-slate-700 mb-1">☀️ 上午場日期 / 時間</label>
+                <label class="block text-xs font-bold text-slate-700 mb-1">☀ 上午場日期 / 時間</label>
                 <input type="text" id="morningDate" value="10/14 上午" onchange="updateExamTitles()" class="w-full border border-slate-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-semibold text-blue-700">
             </div>
 
@@ -76,6 +83,7 @@
                 <input type="text" id="afternoonDate" value="10/14 下午" onchange="updateExamTitles()" class="w-full border border-slate-300 rounded-xl p-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none font-semibold text-purple-700">
             </div>
 
+            <!-- 第三排：講桌、行列數與 A/B 組設定 -->
             <div class="lg:col-span-3">
                 <label class="block text-xs font-bold text-slate-700 mb-1">講桌方位</label>
                 <select id="teacherDeskPos" onchange="onTeacherDeskPosChange()" class="w-full border border-slate-300 rounded-xl p-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none bg-white">
@@ -84,7 +92,6 @@
                 </select>
             </div>
 
-            <!-- 第三排：行列數與 A/B 組設定 -->
             <div class="lg:col-span-3">
                 <div class="flex justify-between items-center mb-1">
                     <label class="text-xs font-bold text-slate-700">直排數 (Rows): <span id="rowValue" class="text-blue-600 font-extrabold">6</span></label>
@@ -99,7 +106,7 @@
                 <input type="range" id="colSlider" min="2" max="10" value="5" oninput="onDimensionChange()" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
             </div>
 
-            <div class="lg:col-span-6 bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
+            <div class="lg:col-span-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between">
                 <div>
                     <span class="block text-xs font-bold text-slate-700">啟用 A/B 組分排</span>
                     <span class="text-[10px] text-slate-500">對應直列交錯分排，滿額溢出</span>
@@ -160,7 +167,7 @@
                     <input type="file" id="excelFile" accept=".xlsx, .xls, .csv" onchange="handleExcelUpload(event)" class="hidden">
                     <div class="flex items-center justify-center gap-2">
                         <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
-                        <span id="fileNameDisplay" class="text-xs text-slate-600 font-medium">點擊選擇或拖曳 Excel 檔批量覆蓋名單</span>
+                        <span id="fileNameDisplay" class="text-xs text-slate-600 font-medium">點擊選擇或拖曳 Excel 檔批量匯入全校名單</span>
                     </div>
                 </div>
 
@@ -191,7 +198,7 @@
         <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
             <h2 class="text-xl font-bold text-slate-900 flex items-center gap-2">📋 產生的段考座位表</h2>
             <button onclick="exportSeatingToExcel()" class="bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow transition flex items-center gap-2">
-                📥 下載黑白精簡版 Excel 座位表 (.xlsx)
+                📥 下載雙分頁 Excel 座位表 (.xlsx)
             </button>
         </div>
 
@@ -220,6 +227,9 @@
     </div>
 
     <script>
+        // 儲存全校多班級資料
+        let allClassesData = {};
+
         let globalStudents = [
             { id: "01", name: "王小明", gender: "M", group: "A", rank: 1, note: "", cheat_group: ["02"] },
             { id: "02", name: "李美玲", gender: "F", group: "B", rank: 15, note: "", cheat_group: ["01"] },
@@ -547,43 +557,61 @@
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                    allClassesData = {};
 
-                    let parsedStudents = [];
+                    workbook.SheetNames.forEach(sheetName => {
+                        const sheet = workbook.Sheets[sheetName];
+                        const jsonRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-                    jsonRows.forEach((row) => {
-                        const getVal = (keys) => {
-                            for (let k of keys) {
-                                const foundKey = Object.keys(row).find(rk => rk.trim().toLowerCase().includes(k));
-                                if (foundKey && row[foundKey] !== undefined) return String(row[foundKey]).trim();
+                        jsonRows.forEach((row) => {
+                            const getVal = (keys) => {
+                                for (let k of keys) {
+                                    const foundKey = Object.keys(row).find(rk => rk.trim().toLowerCase().includes(k));
+                                    if (foundKey && row[foundKey] !== undefined) return String(row[foundKey]).trim();
+                                }
+                                return "";
+                            };
+
+                            let cls = getVal(['班級', 'class', '年級班別', '班別']);
+                            if (!cls) cls = sheetName.trim();
+
+                            let id = getVal(['座號', '學號', 'id']);
+                            let name = getVal(['姓名', '名字', 'name']);
+                            let genderStr = getVal(['性別', 'gender']);
+                            let groupStr = getVal(['組別', '分組', 'group']).toUpperCase();
+                            let rankStr = getVal(['名次', '成績', 'rank']);
+                            let noteStr = getVal(['特殊生', '備註', 'note']);
+                            let cheatStr = getVal(['避開', '作弊', 'cheat']);
+
+                            if (id && name) {
+                                if (!allClassesData[cls]) allClassesData[cls] = [];
+
+                                let gender = (genderStr.includes('女') || genderStr.toUpperCase() === 'F') ? 'F' : 'M';
+                                let group = groupStr.includes('A') ? 'A' : groupStr.includes('B') ? 'B' : '';
+                                let rank = parseInt(rankStr) || 0;
+                                let cheat_group = cheatStr ? cheatStr.split(/[,，、\s]+/).filter(Boolean) : [];
+
+                                allClassesData[cls].push({ id, name, gender, group, rank, note: noteStr, cheat_group });
                             }
-                            return "";
-                        };
-
-                        let id = getVal(['座號', '學號', 'id']);
-                        let name = getVal(['姓名', '名字', 'name']);
-                        let genderStr = getVal(['性別', 'gender']);
-                        let groupStr = getVal(['組別', '分組', 'group']).toUpperCase();
-                        let rankStr = getVal(['名次', '成績', 'rank']);
-                        let noteStr = getVal(['特殊生', '備註', 'note']);
-                        let cheatStr = getVal(['避開', '作弊', 'cheat']);
-
-                        if (id && name) {
-                            let gender = (genderStr.includes('女') || genderStr.toUpperCase() === 'F') ? 'F' : 'M';
-                            let group = groupStr.includes('A') ? 'A' : groupStr.includes('B') ? 'B' : '';
-                            let rank = parseInt(rankStr) || 0;
-                            let cheat_group = cheatStr ? cheatStr.split(/[,，、\s]+/).filter(Boolean) : [];
-
-                            parsedStudents.push({ id, name, gender, group, rank, note: noteStr, cheat_group });
-                        }
+                        });
                     });
 
-                    if (parsedStudents.length > 0) {
-                        globalStudents = parsedStudents;
-                        parseStudentConstraints();
-                        renderStudentTable();
-                        alert(`成功讀取 ${globalStudents.length} 位學生名單！`);
+                    const classNames = Object.keys(allClassesData);
+
+                    if (classNames.length > 0) {
+                        const classSelect = document.getElementById('classSelect');
+                        classSelect.innerHTML = '';
+                        classNames.forEach(cls => {
+                            const opt = document.createElement('option');
+                            opt.value = cls;
+                            opt.innerText = `${cls} (${allClassesData[cls].length}人)`;
+                            classSelect.appendChild(opt);
+                        });
+
+                        switchClass(classNames[0]);
+
+                        const totalStudents = Object.values(allClassesData).flat().length;
+                        alert(`🎉 成功匯入全校名單！共解析出 ${classNames.length} 個班級、${totalStudents} 位學生。`);
                     } else {
                         alert("未能解析出學生資料，請確認 Excel 包含「座號」與「姓名」欄位。");
                     }
@@ -592,6 +620,22 @@
                 }
             };
             reader.readAsArrayBuffer(file);
+        }
+
+        function switchClass(selectedClass) {
+            if (!selectedClass || !allClassesData[selectedClass]) return;
+
+            globalStudents = allClassesData[selectedClass];
+
+            const classNameInput = document.getElementById('className');
+            if (classNameInput) {
+                classNameInput.value = selectedClass;
+            }
+
+            parseStudentConstraints();
+            renderStudentTable();
+            updateExamTitles();
+            generateSeatingCharts();
         }
 
         function shuffle(array) {
@@ -896,9 +940,8 @@
             }
         }
 
-        // 重點修改：匯出適合黑白列印與對應圖片樣式的 Excel
         function exportSeatingToExcel() {
-            if (!morningData || morningData.length === 0) {
+            if (!morningData || morningData.length === 0 || !afternoonData || afternoonData.length === 0) {
                 alert("請先產生座位表再進行匯出！");
                 return;
             }
@@ -915,7 +958,6 @@
             const activeSeatCount = layoutMatrix.flat().filter(Boolean).length;
             const pos = document.getElementById('teacherDeskPos').value;
 
-            // 計算 A/B 組人數
             const countA = globalStudents.filter(s => s.group === 'A').length;
             const countB = globalStudents.filter(s => s.group === 'B').length;
 
@@ -926,7 +968,7 @@
             const buildStyledSheet = (grid, sessionDateText) => {
                 const rows = grid.length;
                 const cols = grid[0].length;
-                const totalCols = cols + 1; // 加上「第X排」標籤欄
+                const totalCols = cols + 1;
                 const ws = {};
                 const merges = [];
                 const rowHeights = [];
@@ -935,7 +977,6 @@
 
                 let currentR = 0;
 
-                // 邊框設定
                 const blackBorder = {
                     top: { style: "thin", color: { rgb: "000000" } },
                     bottom: { style: "thin", color: { rgb: "000000" } },
@@ -950,7 +991,6 @@
                     right: { style: "medium", color: { rgb: "000000" } }
                 };
 
-                // 標題樣式（純白底黑字，大字體）
                 const titleStyle = {
                     font: { name: '微軟正黑體', sz: 16, bold: true, color: { rgb: "000000" } },
                     alignment: { horizontal: "center", vertical: "center" }
@@ -967,7 +1007,6 @@
                 rowHeights.push({ hpt: 32 });
                 currentR++;
 
-                // 副標題 1：班級、學生人數、教室總座位
                 const subTitleStyle = {
                     font: { name: '微軟正黑體', sz: 11, bold: true, color: { rgb: "000000" } },
                     alignment: { horizontal: "center", vertical: "center" }
@@ -985,7 +1024,6 @@
                 rowHeights.push({ hpt: 22 });
                 currentR++;
 
-                // 副標題 2：A組、B組人數
                 const subText2 = `A組：${countA}人 , B組：${countB}人`;
                 for (let c = 0; c < totalCols; c++) {
                     ws[getRef(currentR, c)] = {
@@ -998,12 +1036,10 @@
                 rowHeights.push({ hpt: 22 });
                 currentR++;
 
-                // 空行分隔
                 ws[getRef(currentR, 0)] = { v: "", t: 's' };
                 rowHeights.push({ hpt: 8 });
                 currentR++;
 
-                // 講桌欄位計算 (置中顯示)
                 const deskStartCol = Math.max(1, Math.floor((totalCols - 2) / 2) + 1);
                 const deskEndCol = Math.min(cols, deskStartCol + 1);
 
@@ -1021,7 +1057,6 @@
                     border: blackBorder
                 };
 
-                // 寫入「第 X 列」標題列
                 const writeColHeaderRow = () => {
                     ws[getRef(currentR, 0)] = { v: "", t: 's', s: { border: blackBorder } };
                     for (let c = 0; c < cols; c++) {
@@ -1031,7 +1066,6 @@
                     currentR++;
                 };
 
-                // 寫入講桌列
                 const writeDeskRow = () => {
                     for (let c = 0; c < totalCols; c++) {
                         if (c >= deskStartCol && c <= deskEndCol) {
@@ -1056,12 +1090,10 @@
                     currentR++;
                 }
 
-                // 寫入座位表格內容 (顯示 第 N 排 到 第 1 排)
                 for (let r = 0; r < rows; r++) {
                     const displayRow = (pos === 'top') ? (r + 1) : (rows - r);
-                    rowHeights.push({ hpt: 45 }); // 高度調高，容納大字體
+                    rowHeights.push({ hpt: 45 });
 
-                    // 左側排數標籤
                     ws[getRef(currentR, 0)] = {
                         v: `第 ${displayRow} 排`,
                         t: 's',
@@ -1074,8 +1106,8 @@
                         const isActive = layoutMatrix[r][c];
 
                         let cellVal = "";
-                        let fillRGB = "FFFFFF"; // 預設白底
-                        let fontSize = 12; // 放大字體
+                        let fillRGB = "FFFFFF";
+                        let fontSize = 12;
                         let isBold = true;
 
                         if (!isActive) {
@@ -1088,7 +1120,6 @@
                             const groupText = student.group ? ` (${student.group}組)` : "";
                             cellVal = `${student.name}\n${seatNo}${groupText}`;
 
-                            // B組標示淺灰底以利黑白列印分辨 (#E0E0E0)，A組留白
                             if (student.group === 'B') {
                                 fillRGB = "E0E0E0";
                             } else {
@@ -1110,7 +1141,6 @@
                     currentR++;
                 }
 
-                // 寫入欄標題列（第 1 列 ~ 第 N 列）
                 writeColHeaderRow();
 
                 if (pos === 'bottom') {
@@ -1125,8 +1155,8 @@
                 ws['!merges'] = merges;
                 ws['!rows'] = rowHeights;
 
-                const colWidths = [{ wch: 10 }]; // 排數欄寬
-                for (let c = 0; c < cols; c++) colWidths.push({ wch: 18 }); // 座位欄寬
+                const colWidths = [{ wch: 10 }];
+                for (let c = 0; c < cols; c++) colWidths.push({ wch: 18 });
                 ws['!cols'] = colWidths;
 
                 return ws;
@@ -1137,26 +1167,33 @@
 
             const sanitizeName = (str) => str.replace(/[:\\/\?\*\[\]]/g, '.').substring(0, 30);
 
-            XLSX.utils.book_append_sheet(wb, morningSheet, sanitizeName(`${morningDate}座位表`));
-            XLSX.utils.book_append_sheet(wb, afternoonSheet, sanitizeName(`${afternoonDate}座位表`));
+            const morningSheetName = sanitizeName(`上午場 (${morningDate})`);
+            let afternoonSheetName = sanitizeName(`下午場 (${afternoonDate})`);
+
+            if (morningSheetName === afternoonSheetName) {
+                afternoonSheetName = `${afternoonSheetName}_2`;
+            }
+
+            // 將上午場與下午場兩張 Sheet 依序寫入同一個活頁簿
+            XLSX.utils.book_append_sheet(wb, morningSheet, morningSheetName);
+            XLSX.utils.book_append_sheet(wb, afternoonSheet, afternoonSheetName);
 
             XLSX.writeFile(wb, `${className}_段考座位表.xlsx`);
         }
 
         function downloadTemplate() {
             const templateData = [
-                ["座號", "姓名", "性別", "組別", "名次", "備註", "避開對象"],
-                ["01", "王小明", "男", "A", 1, "", "02"],
-                ["02", "李美玲", "女", "B", 15, "", "01"],
-                ["03", "張偉", "男", "A", 3, "固定只坐第一排", ""],
-                ["04", "陳淑芬", "女", "B", 28, "指定固定座位(1,1)", ""],
-                ["05", "林志豪", "男", "A", 5, "固定只坐最後一排", ""]
+                ["班級", "座號", "姓名", "性別", "組別", "名次", "備註", "避開對象"],
+                ["國一忠", "01", "王小明", "男", "A", 1, "", "02"],
+                ["國一忠", "02", "李美玲", "女", "B", 15, "", "01"],
+                ["國二孝", "01", "張偉", "男", "A", 3, "固定只坐第一排", ""],
+                ["國三仁", "01", "陳淑芬", "女", "B", 28, "指定固定座位(1,1)", ""]
             ];
 
             const ws = XLSX.utils.aoa_to_sheet(templateData);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "學生名單範本");
-            XLSX.writeFile(wb, "段考學生名單匯入範本.xlsx");
+            XLSX.utils.book_append_sheet(wb, ws, "全校學生名單範本");
+            XLSX.writeFile(wb, "段考全校學生名單匯入範本.xlsx");
         }
     </script>
 </body>
